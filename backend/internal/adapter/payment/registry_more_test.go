@@ -2,11 +2,49 @@ package payment
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"xiaoheiplay/internal/app/shared"
+	"xiaoheiplay/internal/domain"
 	"xiaoheiplay/internal/testutil"
 )
+
+type failingSettingsRepo struct {
+	getErr error
+	value  string
+}
+
+func (f *failingSettingsRepo) GetSetting(ctx context.Context, key string) (domain.Setting, error) {
+	if f.getErr != nil {
+		return domain.Setting{}, f.getErr
+	}
+	return domain.Setting{Key: key, ValueJSON: f.value}, nil
+}
+
+func (f *failingSettingsRepo) UpsertSetting(ctx context.Context, setting domain.Setting) error {
+	return nil
+}
+
+func (f *failingSettingsRepo) ListSettings(ctx context.Context) ([]domain.Setting, error) {
+	return nil, nil
+}
+
+func (f *failingSettingsRepo) ListEmailTemplates(ctx context.Context) ([]domain.EmailTemplate, error) {
+	return nil, nil
+}
+
+func (f *failingSettingsRepo) GetEmailTemplate(ctx context.Context, id int64) (domain.EmailTemplate, error) {
+	return domain.EmailTemplate{}, nil
+}
+
+func (f *failingSettingsRepo) UpsertEmailTemplate(ctx context.Context, tmpl *domain.EmailTemplate) error {
+	return nil
+}
+
+func (f *failingSettingsRepo) DeleteEmailTemplate(ctx context.Context, id int64) error {
+	return nil
+}
 
 func TestRegistry_ListAndUpdate(t *testing.T) {
 	_, repo := testutil.NewTestDB(t, false)
@@ -81,5 +119,48 @@ func TestRegistry_SceneEnabledPersistence(t *testing.T) {
 	}
 	if !enabled {
 		t.Fatalf("expected other scene to remain enabled")
+	}
+}
+
+func TestRegistry_GetProviderSceneEnabled_ErrorsWhenSceneSettingLoadFails(t *testing.T) {
+	ctx := context.Background()
+	repoErr := errors.New("db unavailable")
+	reg := NewRegistry(&failingSettingsRepo{getErr: repoErr})
+
+	enabled, err := reg.GetProviderSceneEnabled(ctx, "approval", "order")
+	if err == nil {
+		t.Fatalf("expected error when scene setting load fails")
+	}
+	if !errors.Is(err, repoErr) {
+		t.Fatalf("expected wrapped repo error, got %v", err)
+	}
+	if enabled {
+		t.Fatalf("expected disabled state when loading scene setting fails")
+	}
+}
+
+func TestRegistry_GetProviderSceneEnabled_ErrorsWhenSceneSettingJSONInvalid(t *testing.T) {
+	ctx := context.Background()
+	reg := NewRegistry(&failingSettingsRepo{value: "{invalid json"})
+
+	enabled, err := reg.GetProviderSceneEnabled(ctx, "approval", "order")
+	if err == nil {
+		t.Fatalf("expected error when scene setting JSON is invalid")
+	}
+	if enabled {
+		t.Fatalf("expected disabled state when scene setting JSON is invalid")
+	}
+}
+
+func TestRegistry_GetProviderSceneEnabled_StillDefaultsEnabledWhenSceneSettingMissing(t *testing.T) {
+	ctx := context.Background()
+	reg := NewRegistry(&failingSettingsRepo{getErr: shared.ErrNotFound})
+
+	enabled, err := reg.GetProviderSceneEnabled(ctx, "approval", "order")
+	if err != nil {
+		t.Fatalf("expected nil error for missing scene setting, got %v", err)
+	}
+	if !enabled {
+		t.Fatalf("expected enabled by default when scene setting is missing")
 	}
 }

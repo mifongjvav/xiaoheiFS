@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -377,11 +378,20 @@ func (r *Registry) loadSceneSettings(ctx context.Context) (map[string]map[string
 		return map[string]map[string]bool{}, nil
 	}
 	setting, err := r.settings.GetSetting(ctx, settingPaymentScene)
-	if err != nil || setting.ValueJSON == "" {
+	if err != nil {
+		if errors.Is(err, appshared.ErrNotFound) {
+			return map[string]map[string]bool{}, nil
+		}
+		return map[string]map[string]bool{}, err
+	}
+	if setting.ValueJSON == "" {
 		return map[string]map[string]bool{}, nil
 	}
 	var out map[string]map[string]bool
 	if err := json.Unmarshal([]byte(setting.ValueJSON), &out); err != nil {
+		return map[string]map[string]bool{}, err
+	}
+	if out == nil {
 		return map[string]map[string]bool{}, nil
 	}
 	return out, nil
