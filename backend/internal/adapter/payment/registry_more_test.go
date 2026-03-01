@@ -122,6 +122,30 @@ func TestRegistry_SceneEnabledPersistence(t *testing.T) {
 	}
 }
 
+func TestRegistry_UpdateProviderSceneEnabled_InitializesNilProviderMap(t *testing.T) {
+	_, repo := testutil.NewTestDB(t, false)
+	ctx := context.Background()
+	if err := repo.UpsertSetting(ctx, domain.Setting{
+		Key:       settingPaymentScene,
+		ValueJSON: `{"approval":null}`,
+	}); err != nil {
+		t.Fatalf("seed scene setting: %v", err)
+	}
+
+	reg := NewRegistry(repo)
+	if err := reg.UpdateProviderSceneEnabled(ctx, "approval", "order", false); err != nil {
+		t.Fatalf("update provider scene with nil map: %v", err)
+	}
+
+	enabled, err := reg.GetProviderSceneEnabled(ctx, "approval", "order")
+	if err != nil {
+		t.Fatalf("get provider scene after update: %v", err)
+	}
+	if enabled {
+		t.Fatalf("expected order scene disabled after update from nil provider map")
+	}
+}
+
 func TestRegistry_GetProviderSceneEnabled_ErrorsWhenSceneSettingLoadFails(t *testing.T) {
 	ctx := context.Background()
 	repoErr := errors.New("db unavailable")

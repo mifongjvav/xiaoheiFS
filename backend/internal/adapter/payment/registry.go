@@ -335,7 +335,7 @@ func (r *Registry) UpdateProviderSceneEnabled(ctx context.Context, key, scene st
 		return err
 	}
 	providerMap, ok := sceneMap[key]
-	if !ok {
+	if !ok || providerMap == nil {
 		providerMap = map[string]bool{}
 	}
 	providerMap[scene] = enabled
