@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -152,5 +153,93 @@ func TestHandlers_PaymentNotifyIdempotent(t *testing.T) {
 	}
 	if updated.Status != domain.PaymentStatusApproved {
 		t.Fatalf("expected approved")
+	}
+}
+
+func TestHandlers_WalletPaymentNotifyIdempotent(t *testing.T) {
+	env := testutilhttp.NewTestEnv(t, false)
+	user := testutil.CreateUser(t, env.Repo, "wn1", "wn1@example.com", "pass")
+	order := domain.WalletOrder{
+		UserID:   user.ID,
+		Type:     domain.WalletOrderRecharge,
+		Amount:   1200,
+		Currency: "CNY",
+		Status:   domain.WalletOrderPendingReview,
+		MetaJSON: `{"payment_method":"fake","payment_order_no":"WO-1","payment_trade_no":"WT-1"}`,
+		Note:     "recharge",
+	}
+	if err := env.Repo.CreateWalletOrder(context.Background(), &order); err != nil {
+		t.Fatalf("create wallet order: %v", err)
+	}
+	env.PaymentReg.RegisterProvider(&testutil.FakePaymentProvider{
+		KeyVal:  "fake",
+		NameVal: "Fake",
+		VerifyRes: shared.PaymentNotifyResult{
+			OrderNo: "WO-1",
+			TradeNo: "WT-1",
+			Paid:    true,
+			Amount:  1200,
+		},
+	}, true, "")
+
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/wallet/payments/notify/fake", bytes.NewBufferString("trade_no=WT-1"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+		env.Router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("notify code: %d", rec.Code)
+		}
+	}
+
+	updated, err := env.Repo.GetWalletOrder(context.Background(), order.ID)
+	if err != nil {
+		t.Fatalf("get wallet order: %v", err)
+	}
+	if updated.Status != domain.WalletOrderApproved {
+		t.Fatalf("expected approved status, got=%s", updated.Status)
+	}
+}
+
+func TestHandlers_WalletPaymentNotify_MatchByDerivedOrderNo(t *testing.T) {
+	env := testutilhttp.NewTestEnv(t, false)
+	user := testutil.CreateUser(t, env.Repo, "wn2", "wn2@example.com", "pass")
+	order := domain.WalletOrder{
+		UserID:   user.ID,
+		Type:     domain.WalletOrderRecharge,
+		Amount:   900,
+		Currency: "CNY",
+		Status:   domain.WalletOrderPendingReview,
+		MetaJSON: `{"payment_method":"fake"}`,
+		Note:     "retry pay",
+	}
+	if err := env.Repo.CreateWalletOrder(context.Background(), &order); err != nil {
+		t.Fatalf("create wallet order: %v", err)
+	}
+	derivedOrderNo := fmt.Sprintf("WALLET-ORDER-%d", order.ID)
+	env.PaymentReg.RegisterProvider(&testutil.FakePaymentProvider{
+		KeyVal:  "fake",
+		NameVal: "Fake",
+		VerifyRes: shared.PaymentNotifyResult{
+			OrderNo: derivedOrderNo,
+			Paid:    true,
+			Amount:  900,
+		},
+	}, true, "")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/wallet/payments/notify/fake", bytes.NewBufferString("out_trade_no="+derivedOrderNo))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	env.Router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("notify code: %d", rec.Code)
+	}
+
+	updated, err := env.Repo.GetWalletOrder(context.Background(), order.ID)
+	if err != nil {
+		t.Fatalf("get wallet order: %v", err)
+	}
+	if updated.Status != domain.WalletOrderApproved {
+		t.Fatalf("expected approved status, got=%s", updated.Status)
 	}
 }

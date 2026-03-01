@@ -143,6 +143,10 @@ func (s *Service) GetUserOrder(ctx context.Context, userID, orderID int64) (doma
 	return order, nil
 }
 
+func (s *Service) UpdateOrderMeta(ctx context.Context, orderID int64, metaJSON string) error {
+	return s.orders.UpdateWalletOrderMeta(ctx, orderID, metaJSON)
+}
+
 func (s *Service) CancelByUser(ctx context.Context, userID, orderID int64, reason string) (domain.WalletOrder, error) {
 	reason, err := trimAndValidateOptional(reason, maxLenReviewReason)
 	if err != nil {

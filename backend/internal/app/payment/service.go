@@ -72,9 +72,11 @@ func (s *Service) sceneEnabled(ctx context.Context, key, scene string) bool {
 	scene = normalizeScene(scene)
 	if sr, ok := s.registry.(sceneAwareRegistry); ok {
 		enabled, err := sr.GetProviderSceneEnabled(ctx, key, scene)
-		if err == nil {
-			return enabled
+		if err != nil {
+			// Fail closed when scene state cannot be loaded.
+			return false
 		}
+		return enabled
 	}
 	return true
 }

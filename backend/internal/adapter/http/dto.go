@@ -1350,6 +1350,10 @@ func parseMapJSON(payload string) map[string]any {
 	return out
 }
 
+func encodeMapJSON(m map[string]any) ([]byte, error) {
+	return json.Marshal(m)
+}
+
 func parseStringArray(payload string) []string {
 	if payload == "" {
 		return nil

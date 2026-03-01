@@ -2,6 +2,7 @@ package payment_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	apppayment "xiaoheiplay/internal/app/payment"
 	appshared "xiaoheiplay/internal/app/shared"
@@ -13,9 +14,36 @@ type fakeApprover struct {
 	count int
 }
 
+type sceneLookupErrorRegistry struct {
+	*testutil.FakePaymentRegistry
+}
+
+func (r *sceneLookupErrorRegistry) GetProviderSceneEnabled(ctx context.Context, key, scene string) (bool, error) {
+	return false, errors.New("scene lookup failed")
+}
+
+func (r *sceneLookupErrorRegistry) UpdateProviderSceneEnabled(ctx context.Context, key, scene string, enabled bool) error {
+	return nil
+}
+
 func (f *fakeApprover) ApproveOrder(ctx context.Context, adminID int64, orderID int64) error {
 	f.count++
 	return nil
+}
+
+func TestPaymentService_ListProvidersByScene_FailCloseOnSceneLookupError(t *testing.T) {
+	base := testutil.NewFakePaymentRegistry()
+	base.RegisterProvider(&testutil.FakePaymentProvider{KeyVal: "fake", NameVal: "Fake"}, true, `{}`)
+	reg := &sceneLookupErrorRegistry{FakePaymentRegistry: base}
+
+	svc := apppayment.NewService(nil, nil, nil, reg, nil, nil, nil)
+	providers, err := svc.ListProvidersByScene(context.Background(), false, apppayment.SceneWallet)
+	if err != nil {
+		t.Fatalf("list providers by scene: %v", err)
+	}
+	if len(providers) != 0 {
+		t.Fatalf("expected provider filtered out when scene lookup fails")
+	}
 }
 
 func TestPaymentService_Balance(t *testing.T) {

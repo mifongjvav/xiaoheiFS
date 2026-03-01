@@ -99,6 +99,16 @@ func (f *fakeWalletOrderRepo) UpdateWalletOrderStatusIfCurrent(ctx context.Conte
 	return true, nil
 }
 
+func (f *fakeWalletOrderRepo) UpdateWalletOrderMeta(ctx context.Context, id int64, metaJSON string) error {
+	order, ok := f.orders[id]
+	if !ok {
+		return appshared.ErrNotFound
+	}
+	order.MetaJSON = metaJSON
+	f.orders[id] = order
+	return nil
+}
+
 type fakeSettingsRepo struct {
 	values map[string]string
 }
