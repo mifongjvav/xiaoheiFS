@@ -292,3 +292,10 @@ func (r *GormRepo) UpdateWalletOrderStatusIfCurrent(ctx context.Context, id int6
 	}
 	return res.RowsAffected > 0, nil
 }
+
+func (r *GormRepo) UpdateWalletOrderMeta(ctx context.Context, id int64, metaJSON string) error {
+	return r.gdb.WithContext(ctx).Model(&walletOrderRow{}).Where("id = ?", id).Updates(map[string]any{
+		"meta_json":  metaJSON,
+		"updated_at": time.Now(),
+	}).Error
+}
