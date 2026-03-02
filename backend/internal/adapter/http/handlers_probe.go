@@ -54,7 +54,7 @@ func (h *Handler) ProbeEnroll(c *gin.Context) {
 	var payload struct {
 		EnrollToken string `json:"enroll_token" binding:"required,max=128"`
 		AgentID     string `json:"agent_id" binding:"required,max=128"`
-		Name        string `json:"name" binding:"required,max=128"`
+		Name        string `json:"name" binding:"omitempty,max=128"`
 		OSType      string `json:"os_type" binding:"required,max=32"`
 	}
 	if err := bindJSON(c, &payload); err != nil {

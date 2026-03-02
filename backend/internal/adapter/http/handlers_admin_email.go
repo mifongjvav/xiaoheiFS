@@ -3,6 +3,7 @@ package http
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"strings"
 	"xiaoheiplay/internal/domain"
 )
 
@@ -29,9 +30,13 @@ func (h *Handler) AdminEmailTemplateUpsert(c *gin.Context) {
 		return
 	}
 	var uri struct {
-		ID int64 `uri:"id" binding:"omitempty,gt=0"`
+		ID int64 `uri:"id" binding:"required,gt=0"`
 	}
-	if err := c.ShouldBindUri(&uri); err == nil && uri.ID > 0 {
+	if strings.TrimSpace(c.Param("id")) != "" {
+		if err := c.ShouldBindUri(&uri); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrInvalidId.Error()})
+			return
+		}
 		payload.ID = uri.ID
 	}
 	tmpl := emailTemplateDTOToDomain(payload)
