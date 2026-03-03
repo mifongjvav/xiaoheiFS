@@ -319,7 +319,7 @@ func (h *Handler) AdminAutomationConfig(c *gin.Context) {
 	cfg, present, binding, enabled, err := h.readAutomationPluginConfig(c)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{
-			"error":         "no writable automation plugin instance found; configure automation plugin instance first",
+			"error":         domain.ErrNoWritableAutomationPluginInstance.Error(),
 			"code":          "no_writable_automation_instance",
 			"redirect_path": "/admin/catalog",
 		})
@@ -373,7 +373,7 @@ func (h *Handler) AdminAutomationConfigUpdate(c *gin.Context) {
 	binding, err := h.resolveWritableAutomationBinding(c)
 	if err != nil {
 		c.JSON(http.StatusConflict, gin.H{
-			"error":         "no writable automation plugin instance found; configure automation plugin instance first",
+			"error":         domain.ErrNoWritableAutomationPluginInstance.Error(),
 			"code":          "no_writable_automation_instance",
 			"redirect_path": "/admin/catalog",
 		})

@@ -35,12 +35,12 @@
 </template>
 
 <script setup>
-import { reactive, onMounted } from "vue";
+import { reactive } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useAdminAuthStore } from "@/stores/adminAuth";
 import { message, theme } from "ant-design-vue";
 import SiteLogoMedia from "@/components/brand/SiteLogoMedia.vue";
-import { buildAdminUrl, checkAdminPath, fetchAdminPath } from "@/services/adminPath";
+import { buildAdminUrl } from "@/services/adminPath";
 
 const form = reactive({
   username: "",
@@ -56,22 +56,6 @@ const getCurrentAdminPath = () => {
   const pathSegments = route.path.split("/").filter(Boolean);
   return pathSegments[0] || "admin";
 };
-
-// 验证当前路径是否正确
-onMounted(async () => {
-  const currentPath = getCurrentAdminPath();
-  try {
-    const result = await checkAdminPath(currentPath);
-    if (!result.isAdmin) {
-      // 当前路径不是管理路径，跳转到正确的路径
-      message.warning("管理路径已更改，正在跳转...");
-      const correctPath = await fetchAdminPath();
-      router.replace(`/${correctPath}/login`);
-    }
-  } catch (error) {
-    console.error("Failed to validate admin path:", error);
-  }
-});
 
 const onSubmit = async () => {
   try {

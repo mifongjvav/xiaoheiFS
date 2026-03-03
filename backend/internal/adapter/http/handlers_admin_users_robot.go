@@ -175,7 +175,7 @@ func (h *Handler) AdminLogin(c *gin.Context) {
 	}
 	
 	// 验证路径是否匹配
-	if requestPath != configuredPath {
+	if !strings.EqualFold(requestPath, configuredPath) {
 		c.JSON(http.StatusForbidden, gin.H{"error": domain.ErrAdminPathMismatch.Error()})
 		return
 	}

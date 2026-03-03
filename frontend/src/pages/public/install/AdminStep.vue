@@ -83,7 +83,7 @@
             <a-input
               v-model:value="form.adminPath"
               size="large"
-              placeholder="留空使用默认路径 /admin"
+              placeholder="Please input admin path"
               class="styled-input"
             >
               <template #addonAfter>
@@ -148,7 +148,7 @@
             html-type="submit"
             size="large"
             :loading="submitting"
-            :disabled="!wiz.dbChecked"
+            :disabled="!wiz.dbChecked || !String(form.adminPath || '').trim()"
             class="action-btn primary"
           >
             <template #icon>
@@ -172,7 +172,6 @@ import type { StoreValue } from "ant-design-vue/es/form/interface";
 import { runInstall } from "@/services/user";
 import { useInstallStore } from "@/stores/install";
 import { useInstallWizardStore } from "@/stores/installWizard";
-import { http } from "@/services/http";
 
 const emit = defineEmits<{
   next: [adminPath: string, restart: boolean, configFile: string]
@@ -190,6 +189,18 @@ const form = reactive({
   adminPass2: "",
   adminPath: wiz.adminPath || ""
 });
+const randomCharset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const reservedAdminPaths = new Set([
+  "login", "admin", "api", "install", "console", "register", "assets", "uploads",
+  "static", "public", "user", "users", "auth", "logout", "profile", "settings",
+  "dashboard", "home", "index", "help", "docs", "products", "about", "contact",
+  "support", "forgot", "reset", "verify", "callback", "oauth", "download", "downloads",
+  "file", "files", "image", "images", "video", "videos", "media", "css", "js",
+  "javascript", "favicon", "robots", "sitemap", "manifest", "service", "worker", "sw",
+  "health", "ping", "status", "metrics", "debug", "test", "demo", "example", "sample",
+  "tmp", "temp", "cache", "backup", "config", "system", "root", "administrator",
+  "webmaster", "moderator", "superuser", "sysadmin"
+]);
 
 watch(
   () => form.adminUser,
@@ -218,7 +229,7 @@ const validateConfirm = async (_rule: RuleObject, value: StoreValue) => {
 
 const validateAdminPath = async (_rule: RuleObject, value: StoreValue) => {
   const v = String(value || "").trim();
-  if (!v) return Promise.resolve(); // 允许为空
+  if (!v) return Promise.reject(new Error("Please input admin path"));
   
   // 前端校验：只允许字母和数字
   if (!/^[a-zA-Z0-9]+$/.test(v)) {
@@ -226,8 +237,7 @@ const validateAdminPath = async (_rule: RuleObject, value: StoreValue) => {
   }
   
   // 黑名单检查
-  const reserved = ["login", "admin", "api", "install", "console", "register", "assets", "uploads"];
-  if (reserved.includes(v.toLowerCase())) {
+  if (reservedAdminPaths.has(v.toLowerCase())) {
     return Promise.reject(new Error("该路径为保留路径，请更换"));
   }
   
@@ -237,13 +247,23 @@ const validateAdminPath = async (_rule: RuleObject, value: StoreValue) => {
 const generateAdminPath = async () => {
   generating.value = true;
   try {
-    const res = await http.get<{ admin_path: string }>("/api/v1/install/generate-admin-path");
-    if (res.data?.admin_path) {
-      form.adminPath = res.data.admin_path;
-      message.success("已生成随机路径");
+    for (let i = 0; i < 20; i += 1) {
+      const bytes = new Uint8Array(12);
+      if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+        crypto.getRandomValues(bytes);
+      } else {
+        for (let j = 0; j < bytes.length; j += 1) {
+          bytes[j] = Math.floor(Math.random() * 256);
+        }
+      }
+      const candidate = Array.from(bytes, (b) => randomCharset[b % randomCharset.length]).join("");
+      if (!reservedAdminPaths.has(candidate.toLowerCase())) {
+        form.adminPath = candidate;
+        message.success("已生成随机路径");
+        return;
+      }
     }
-  } catch (error: any) {
-    message.error(error.response?.data?.error || "生成失败");
+    message.error("生成失败");
   } finally {
     generating.value = false;
   }
@@ -254,10 +274,15 @@ const back = () => {
 };
 
 const onSubmit = async () => {
+  const adminPath = String(form.adminPath || "").trim();
+  if (!adminPath) {
+    message.error("Please input admin path");
+    return;
+  }
   submitting.value = true;
   try {
     wiz.adminPass = form.adminPass;
-    wiz.adminPath = form.adminPath;
+    wiz.adminPath = adminPath;
     wiz.persist();
     const payload =
       wiz.dbType === "sqlite"
@@ -266,14 +291,14 @@ const onSubmit = async () => {
 
     const res = await runInstall({
       ...payload,
-      site: { name: wiz.siteName, url: wiz.siteUrl, admin_path: form.adminPath },
+      site: { name: wiz.siteName, url: wiz.siteUrl, admin_path: adminPath },
       admin: { username: form.adminUser, password: form.adminPass }
     });
 
     await install.fetchStatus();
     
     // 缓存管理端路径到 localStorage
-    const finalAdminPath = form.adminPath || "admin";
+    const finalAdminPath = adminPath;
     localStorage.setItem("admin_path_cache", finalAdminPath);
     
     message.success("安装完成");
@@ -291,7 +316,6 @@ const onSubmit = async () => {
 };
 
 onMounted(async () => {
-  // 每次都自动生成一个新的随机路径
   await generateAdminPath();
 });
 </script>

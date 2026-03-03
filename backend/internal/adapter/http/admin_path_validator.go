@@ -89,7 +89,7 @@ func ValidateAdminPath(path string) error {
 	
 	// 允许为空（使用默认路径 /admin）
 	if path == "" {
-		return nil
+		return domain.ErrAdminPathInvalid
 	}
 	
 	// 检查是否只包含字母和数字
@@ -145,4 +145,3 @@ func GetAdminPathFromSettings(settingsSvc SettingsService) string {
 	
 	return ""
 }
-

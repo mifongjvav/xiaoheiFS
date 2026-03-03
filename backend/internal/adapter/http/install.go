@@ -50,8 +50,7 @@ func (h *Handler) InstallStatus(c *gin.Context) {
 }
 
 func (h *Handler) InstallGenerateAdminPath(c *gin.Context) {
-	path := GenerateRandomAdminPath()
-	c.JSON(http.StatusOK, gin.H{"admin_path": path})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
 func (h *Handler) ValidateAdminPathHandler(c *gin.Context) {
@@ -95,7 +94,7 @@ func (h *Handler) CheckAdminPath(c *gin.Context) {
 	}
 	
 	isAdmin := strings.EqualFold(path, configuredPath)
-	c.JSON(http.StatusOK, gin.H{"is_admin": isAdmin, "admin_path": configuredPath})
+	c.JSON(http.StatusOK, gin.H{"is_admin": isAdmin})
 }
 
 func (h *Handler) InstallDBCheck(c *gin.Context) {

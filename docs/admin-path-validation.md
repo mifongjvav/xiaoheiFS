@@ -44,8 +44,7 @@ POST /api/v1/check-admin-path
 响应：
 ```json
 {
-  "is_admin": true,
-  "admin_path": "admin"
+  "is_admin": true
 }
 ```
 

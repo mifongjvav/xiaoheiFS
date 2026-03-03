@@ -33,6 +33,7 @@ var (
 	ErrPluginMethodNotSupported                           = errors.New("method not supported")
 	ErrAutomationBindingInvalid                           = errors.New("invalid automation binding")
 	ErrAutomationPluginInstanceNotFound                   = errors.New("automation plugin instance not found")
+	ErrNoWritableAutomationPluginInstance                 = errors.New("no writable automation plugin instance found; configure automation plugin instance first")
 	ErrSecurityTicketRequired                             = errors.New("security ticket required")
 	ErrSecurityTicketInvalid                              = errors.New("invalid security ticket")
 	ErrMissingBearerToken                                 = errors.New("missing bearer token")
