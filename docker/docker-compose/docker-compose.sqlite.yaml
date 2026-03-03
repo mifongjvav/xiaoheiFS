@@ -4,9 +4,11 @@ name: xiaoheifs-sqlite
 services:
   xiaoheifs:
     build:
-      context: ..
+      context: ../..
       dockerfile: docker/build/Dockerfile
-    image: xiaoheifs-backend:local
+    image: xiaoheifs-backend:latest
+    # Alpine variant:
+    # image: xiaoheifs-backend:alpine
     container_name: xiaoheifs
     restart: unless-stopped
     ports:

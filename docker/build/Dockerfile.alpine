@@ -1,6 +1,6 @@
 ARG VERSION=local
 
-FROM node:20-bookworm-slim AS frontend-builder
+FROM node:20-alpine AS frontend-builder
 WORKDIR /src/frontend
 COPY frontend/package*.json ./
 RUN npm config set registry https://mirrors.tuna.tsinghua.edu.cn/npm/ \
@@ -8,26 +8,25 @@ RUN npm config set registry https://mirrors.tuna.tsinghua.edu.cn/npm/ \
 COPY frontend/ ./
 RUN npm run build
 
-FROM golang:1.25-bookworm AS backend-builder
+FROM golang:1.25-alpine AS backend-builder
 WORKDIR /src/backend
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends git ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache git ca-certificates
 ENV GOPROXY=https://mirrors.aliyun.com/goproxy/,direct
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /out/server ./cmd/server
 
-FROM debian:bookworm-slim
+FROM alpine:3.21
 ARG VERSION
 LABEL org.opencontainers.image.version=$VERSION
 WORKDIR /app
-COPY docker/build/sources.list /etc/apt/sources.list
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
-RUN useradd -r -u 10001 -m -d /app -s /usr/sbin/nologin xiaoheifs
+
+RUN sed -i 's#https\?://dl-cdn.alpinelinux.org/alpine#https://mirrors.tuna.tsinghua.edu.cn/alpine#g' /etc/apk/repositories \
+  && apk update \
+  && apk add --no-cache ca-certificates \
+  && addgroup -S xiaoheifs \
+  && adduser -S -D -H -h /app -u 10001 -G xiaoheifs xiaoheifs
 
 COPY --from=backend-builder /out/server /app/server
 COPY --from=frontend-builder /src/frontend/dist /app/static

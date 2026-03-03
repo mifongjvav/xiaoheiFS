@@ -1,91 +1,90 @@
-# Docker 使用说明
+﻿# Docker 使用说明
 
 本目录用于构建并运行 `xiaoheifs` 后端服务。
 
+## 推荐组合
+
+- 后端镜像：`xiaoheifs-backend:latest`（Debian）
+- 数据库：MySQL（`docker-compose.mysql.yaml`）
+
 ## 目录结构
 
-- `build/Dockerfile`：镜像构建文件
-- `build/start.sh`：容器启动脚本（根据环境变量生成 `app.config.yaml`）
-- `build/build-docker-image.sh`：手动构建镜像脚本
-- `docker-compose/docker-compose.mysql.yaml`：MySQL 部署（默认推荐）
-- `docker-compose/docker-compose.postgres.yaml`：PostgreSQL 部署
-- `docker-compose/docker-compose.sqlite.yaml`：SQLite 部署（仅开发测试）
+```text
+docker/
+├── README.md
+├── build/
+│   ├── Dockerfile                   # Debian 版镜像构建文件（默认）
+│   ├── Dockerfile.alpine            # Alpine 版镜像构建文件
+│   ├── sources.list                 # Debian APT 镜像源配置（清华源）
+│   ├── start.sh                     # 容器入口脚本，按环境变量生成 app.config.yaml
+│   ├── build-docker-image.sh        # Linux/macOS 构建脚本（交互支持 latest/alpine/all）
+│   ├── build-docker-image.ps1       # Windows PowerShell 构建脚本（交互支持 latest/alpine/all）
+│   └── build-docker-image.bat       # Windows CMD 构建脚本（交互支持 latest/alpine/all）
+└── docker-compose/
+    ├── docker-compose.mysql.yaml    # MySQL 部署
+    ├── docker-compose.postgres.yaml # PostgreSQL 部署
+    └── docker-compose.sqlite.yaml   # SQLite 部署（仅测试，暂未支持）
+```
 
-## 1. 构建镜像
+## 构建镜像
 
-在仓库根目录执行：
+### Linux/macOS
 
 ```bash
 ./docker/build/build-docker-image.sh
 ```
 
-指定镜像名：
+交互输入：
+- `1` = `latest`（Debian）
+- `2` = `alpine`
+- `0` = `all`
 
-```bash
-./docker/build/build-docker-image.sh your-registry/xiaoheifs-backend:tag
+### Windows PowerShell
+
+```powershell
+.\docker\build\build-docker-image.ps1
 ```
 
-## 2. 启动服务
+### Windows CMD
 
-默认（MySQL）：
+```bat
+.\docker\build\build-docker-image.bat
+```
+
+## 启动服务
+
+### 推荐：MySQL
 
 ```bash
 docker compose -f docker/docker-compose/docker-compose.mysql.yaml up -d --build
 ```
 
-PostgreSQL：
+### PostgreSQL
 
 ```bash
 docker compose -f docker/docker-compose/docker-compose.postgres.yaml up -d --build
 ```
 
-SQLite（仅开发/测试）：
+### SQLite（仅测试，暂未支持）
 
 ```bash
 docker compose -f docker/docker-compose/docker-compose.sqlite.yaml up -d --build
 ```
 
-警告：SQLite 不建议用于生产环境。
-
-## 3. 停止与清理
-
-停止并删除容器：
+## 停止与清理
 
 ```bash
 docker compose -f docker/docker-compose/docker-compose.mysql.yaml down
 ```
 
-连同数据卷一起删除（会清空数据库）：
+删除容器并清理数据卷（会删除数据库数据）：
 
 ```bash
 docker compose -f docker/docker-compose/docker-compose.mysql.yaml down -v
 ```
 
-## 4. 关键环境变量（写在 compose 中）
+## 说明
 
-后端容器：
-
-- `APP_ADDR`
-- `APP_API_BASE_URL`
-- `APP_JWT_SECRET`
-- `APP_PLUGIN_MASTER_KEY`
-- `APP_PLUGINS_DIR`
-- `APP_DB_TYPE`
-- `APP_DB_PATH`
-- `APP_DB_HOST`
-- `APP_DB_PORT`
-- `APP_DB_NAME`
-- `APP_DB_USER`
-- `APP_DB_PASSWORD`
-- `APP_DB_OPTIONS`
-
-数据库容器：
-
-- MySQL：`MYSQL_ROOT_PASSWORD` / `MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD`
-- PostgreSQL：`POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD`
-
-## 5. 查看日志
-
-```bash
-docker compose -f docker/docker-compose/docker-compose.mysql.yaml logs -f xiaoheifs
-```
+- compose 文件中默认镜像为 `xiaoheifs-backend:latest`。
+- 如需切换 Alpine 镜像，可将 compose 中应用镜像改为 `xiaoheifs-backend:alpine`。
+- compose 中的数据库密码为测试用途，请勿用于生产环境。
