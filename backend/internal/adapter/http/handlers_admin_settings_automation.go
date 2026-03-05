@@ -79,37 +79,36 @@ func (h *Handler) AdminSettingsUpdate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrInvalidBody.Error()})
 		return
 	}
-	
+
 	// 批量更新模式
 	if len(payload.Items) > 0 {
+		normalizedItems := make([]struct {
+			Key   string
+			Value string
+		}, 0, len(payload.Items))
+
 		// 验证所有配置项
 		for _, item := range payload.Items {
 			if strings.TrimSpace(item.Key) == "" {
 				c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrInvalidKey.Error()})
 				return
 			}
-			// 特殊验证：版权信息
-			if item.Key == "copyright_text" {
-				if strings.TrimSpace(item.Value) == "" {
-					c.JSON(http.StatusBadRequest, gin.H{"error": "版权信息不能为空"})
-					return
-				}
-				if len([]rune(item.Value)) > 200 {
-					c.JSON(http.StatusBadRequest, gin.H{"error": "版权信息不能超过200字"})
-					return
-				}
+			normalizedValue, err := validateAndNormalizeSettingValue(item.Key, item.Value)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
 			}
-			// 特殊验证：备案信息列表
-			if item.Key == "beian_info_list" {
-				if err := validateBeianInfoList(item.Value); err != nil {
-					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-					return
-				}
-			}
+			normalizedItems = append(normalizedItems, struct {
+				Key   string
+				Value string
+			}{
+				Key:   item.Key,
+				Value: normalizedValue,
+			})
 		}
-		
+
 		// 执行更新
-		for _, item := range payload.Items {
+		for _, item := range normalizedItems {
 			if err := h.adminSvc.UpdateSetting(c, getUserID(c), item.Key, item.Value); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 				return
@@ -121,33 +120,45 @@ func (h *Handler) AdminSettingsUpdate(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": domain.ErrInvalidKey.Error()})
 			return
 		}
-		
-		// 特殊验证：版权信息
-		if payload.Key == "copyright_text" {
-			if strings.TrimSpace(payload.Value) == "" {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "版权信息不能为空"})
-				return
-			}
-			if len([]rune(payload.Value)) > 200 {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "版权信息不能超过200字"})
-				return
-			}
+
+		normalizedValue, err := validateAndNormalizeSettingValue(payload.Key, payload.Value)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
-		
-		// 特殊验证：备案信息列表
-		if payload.Key == "beian_info_list" {
-			if err := validateBeianInfoList(payload.Value); err != nil {
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-				return
-			}
-		}
-		
-		if err := h.adminSvc.UpdateSetting(c, getUserID(c), payload.Key, payload.Value); err != nil {
+
+		if err := h.adminSvc.UpdateSetting(c, getUserID(c), payload.Key, normalizedValue); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func validateAndNormalizeSettingValue(key, value string) (string, error) {
+	switch key {
+	case "copyright_text":
+		if strings.TrimSpace(value) == "" {
+			return "", fmt.Errorf("版权信息不能为空")
+		}
+		if len([]rune(value)) > 200 {
+			return "", fmt.Errorf("版权信息不能超过200字")
+		}
+		return value, nil
+	case "beian_info_list":
+		if err := validateBeianInfoList(value); err != nil {
+			return "", err
+		}
+		return value, nil
+	case "admin_path":
+		normalizedPath := strings.TrimSpace(value)
+		if err := ValidateAdminPath(normalizedPath); err != nil {
+			return "", err
+		}
+		return normalizedPath, nil
+	default:
+		return value, nil
+	}
 }
 
 // validateBeianInfoList 验证备案信息列表的格式
