@@ -1404,6 +1404,12 @@ func (s *OrderService) handleRenew(ctx context.Context, item domain.OrderItem) e
 	if payload.RenewDays <= 0 {
 		payload.RenewDays = 30
 	}
+	// Guard against time.Duration overflow: cap renewDays to the same safe
+	// upper bound enforced at order creation (600 months = 18000 days).
+	const maxRenewDays = 600 * 30
+	if payload.RenewDays > maxRenewDays {
+		return ErrInvalidInput
+	}
 	inst, err := s.vps.GetInstance(ctx, payload.VPSID)
 	if err != nil {
 		return err
@@ -1464,6 +1470,12 @@ func (s *OrderService) handleEmergencyRenew(ctx context.Context, item domain.Ord
 	renewDays := payload.RenewDays
 	if renewDays <= 0 {
 		renewDays = policy.RenewDays
+	}
+	// Guard against time.Duration overflow: emergency renew days should be
+	// a small value (configured via policy), but cap defensively.
+	const maxEmergencyRenewDays = 365
+	if renewDays > maxEmergencyRenewDays {
+		renewDays = maxEmergencyRenewDays
 	}
 	hostID := parseHostID(inst.AutomationInstanceID)
 	if hostID == 0 {
@@ -2336,8 +2348,12 @@ func (s *OrderService) CreateRenewOrder(ctx context.Context, userID int64, vpsID
 	if months <= 0 {
 		months = 1
 	}
-	maxInt := int(^uint(0) >> 1)
-	if months > maxInt/30 {
+	// Limit months to a safe upper bound that prevents time.Duration overflow.
+	// time.Duration(days)*24*time.Hour overflows when days > ~106751 (292 years).
+	// We cap at 600 months (50 years) which is a reasonable business maximum
+	// and stays well within time.Duration's safe range.
+	const maxRenewMonths = 600
+	if months > maxRenewMonths {
 		return domain.Order{}, ErrInvalidInput
 	}
 	renewDays = months * 30
